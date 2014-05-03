@@ -12,6 +12,7 @@
 import pygame
 import random
 import pyganim
+import load
 
 #--- Global constants ---
 BLACK = (0, 0, 0)
@@ -24,16 +25,15 @@ SCREEN_HEIGHT = 720
 
 # --- Classes ---
 
-
 class Block(pygame.sprite.Sprite):
     """ This class represents a simple block the player collects. """
     block_speed = 0
-    scorevalue= 0
+    scorevalue = 0
 
     def __init__(self, caller, block_speed, scorevalue):
         """ Constructor, create the image of the block. """
         pygame.sprite.Sprite.__init__(self)
-        self.ufo_ani = pyganim.PygAnimation.getCopy(caller.UFO_ANI)
+        self.ufo_ani = pyganim.PygAnimation.getCopy(loader.UFO_ANI)
         self.ufo_ani.rotate(random.randint(-90, 90))
         self.rect = self.ufo_ani.getRect()
         self.image = self.ufo_ani.getCurrentFrame()
@@ -41,10 +41,10 @@ class Block(pygame.sprite.Sprite):
         #self.image.fill(RED)
         self.block_speed = block_speed
         self.scorevalue = scorevalue
-        if not random.randint(0,4):
+        if not random.randint(0, 4):
             self.ufo_ani.reverse()
         self.ufo_ani.play()
-        self.ufo_ani.rate = random.uniform(.5,2.5)
+        self.ufo_ani.rate = random.uniform(.5, 2.5)
 
     def reset_pos(self):
         """ Called when the block is 'collected' or falls off
@@ -60,6 +60,7 @@ class Block(pygame.sprite.Sprite):
         if self.rect.y > SCREEN_HEIGHT + self.rect.height:
             self.reset_pos()
 
+
 class Player(pygame.sprite.Sprite):
     """ This class represents the player. """
 
@@ -69,9 +70,8 @@ class Player(pygame.sprite.Sprite):
     def __init__(self, caller):
         pygame.sprite.Sprite.__init__(self)
         self.bullet_list = pygame.sprite.Group()
-        self.image = caller.PLAYER_IMAGE
+        self.image = loader.PLAYER_IMAGE
         self.rect = self.image.get_rect()
-        self.BULLET_IMAGE = caller.BULLET_IMAGE
         self.mask = pygame.mask.from_surface(self.image)
 
     def shoot(self,caller):
@@ -84,7 +84,7 @@ class Player(pygame.sprite.Sprite):
             caller.all_sprites_list.add(bullet)
             self.bullet_list.add(bullet)
             #Play Bullet sound
-            caller.sound_bullet_fire.play()
+            loader.sound_bullet_fire.play()
 
     def update(self):
         """ Update the player location. """
@@ -101,7 +101,7 @@ class Bullet(pygame.sprite.Sprite):
 
         #call the parent class constructor
         pygame.sprite.Sprite.__init__(self)
-        self.image = caller.BULLET_IMAGE
+        self.image = loader.BULLET_IMAGE
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
         self.speed = 8
@@ -162,24 +162,19 @@ class Game(object):
     # --- Class methods
     # Set up the game
     def __init__(self):
-        #load and inatialize level music
-        self.currenttrack = "music/level%s.ogg" % (self.level % 5+1)
-        pygame.mixer.music.load(self.currenttrack)
-        pygame.mixer.music.play(-1)
+        #load and inatialize level music but make sure track # doesnt exceed 5(as thats all our tracks)
+        loader.music("music/level%s.ogg" % ((self.level % 5) + 1))
 
         # Create sprite lists
         self.block_list = pygame.sprite.Group()
         self.all_sprites_list = pygame.sprite.Group()
         self.player_list = pygame.sprite.Group()
 
-        if self.need_loader:
-            self.loader()
-
         # Create the block sprites
         for i in range(self.block_count):
-            block = Block(self,self.block_speed,100*self.level)
+            block = Block(self, self.block_speed, 100*self.level)
 
-            block.rect.x = random.randrange(100,SCREEN_WIDTH-100)
+            block.rect.x = random.randrange(100, SCREEN_WIDTH-100)
             block.rect.y = random.randrange(-300, SCREEN_HEIGHT//3)
 
             self.block_list.add(block)
@@ -191,66 +186,39 @@ class Game(object):
         self.player_list.add(self.player)
         #pygame.mouse.set_pos([SCREEN_WIDTH/2,SCREEN_HEIGHT-130])
 
-    def loader(self):
-        self.need_loader = False
-
-        self.PLAYER_IMAGE = pygame.image.load("starship.png").convert()
-        self.PLAYER_IMAGE.set_colorkey(BLACK)
-
-        self.BULLET_IMAGE = pygame.image.load("projectile.png").convert()
-        self.BULLET_IMAGE.set_colorkey(BLACK)
-
-        self.PLANET_IMAGE = pygame.image.load("planets.png").convert()
-        self.PLANET_IMAGE.set_colorkey(BLACK)
-
-        self.UFO_ANI = pyganim.PygAnimation([('Asteroid/Asteroid 01-.%d.png' % (i+1), .06) for i in range(60)])
-        self.UFO_ANI.smoothscale((64,64))
-        #self.UFO_ANI.rotate(45)  # rotate 45 degrees so surface is large enough when we rotate later
-        self.UFO_ANI.makeTransformsPermanent()  # this makes it so our animation surface is actually the new scaled size
-        self.UFO_ANI.convert()
-        #self.UFO_ANI.set_colorkey(BLACK)  # removed because for some odd reason causes missing transparency issues
-
-        #Open Sounds
-        self.sound_engine_hum = pygame.mixer.Sound("enginehum.ogg")
-        self.sound_engine_hum.set_volume(1)
-        self.sound_bullet_fire = pygame.mixer.Sound("laser5.ogg")
-        self.sound_engine = pygame.mixer.Sound("engine_takeoff.wav")
-        self.sound_engine.set_volume(.5)
-
-        self.sound_engine_hum.play(-1)
 
     def init_stars(self, screen):
-      """ Create the starfield """
-      for i in range(self.MAX_STARS):
-        # A star is represented as a list with this format: [X,Y,speed]
-        star = [random.randrange(0, screen.get_width() - 1),
-                random.randrange(0, screen.get_height() - 1),
-                random.choice([1, 2, 3])]
-        self.stars.append(star)
+        """ Create the starfield """
+        for i in range(self.MAX_STARS):
+            # A star is represented as a list with this format: [X,Y,speed]
+            star = [random.randrange(0, screen.get_width() - 1),
+                    random.randrange(0, screen.get_height() - 1),
+                    random.choice([1, 2, 3])]
+            self.stars.append(star)
 
     def move_and_draw_stars(self, screen):
-      """ Move and draw the stars in the given screen """
-      for star in self.stars:
-        star[1] += star[2]
-        # If the star hit the bottom border then we reposition
-        # it in the top of the screen with a random X coordinate.
-        if star[1] >= screen.get_height():
-          star[1] = 0
-          star[0] = random.randrange(0,screen.get_width() - 1)
-          star[2] = random.choice([1,2,3])
+        """ Move and draw the stars in the given screen """
+        for star in self.stars:
+            star[1] += star[2]
+            # If the star hit the bottom border then we reposition
+            # it in the top of the screen with a random X coordinate.
+            if star[1] >= screen.get_height():
+                star[1] = 0
+                star[0] = random.randrange(0,screen.get_width() - 1)
+                star[2] = random.choice([1,2,3])
 
-        # Adjust the star color acording to the speed.
-        # The slower the star, the darker should be its color.
-        if star[2] == 1:
-          color = (100,100,100)
-        elif star[2] == 2:
-          color = (190,190,190)
-        elif star[2] == 3:
-          color = (255,255,255)
+            # Adjust the star color acording to the speed.
+            # The slower the star, the darker should be its color.
+            if star[2] == 1:
+                color = (100,100,100)
+            elif star[2] == 2:
+                color = (190,190,190)
+            elif star[2] == 3:
+                color = (255,255,255)
 
-        # Draw the star as a rectangle.
-        # The star size is proportional to its speed.
-        screen.fill(color,(star[0],star[1],star[2],star[2]))
+            # Draw the star as a rectangle.
+            # The star size is proportional to its speed.
+            screen.fill(color,(star[0],star[1],star[2],star[2]))
 
     def printhud(self,screen):
         font = pygame.font.Font(None, 36)
@@ -341,7 +309,7 @@ class Game(object):
                     # can put stuff you only want to run once on level transition here
 
                     self.player_destination = [1, -200, SCREEN_HEIGHT + 200, SCREEN_HEIGHT - 300, SCREEN_HEIGHT - 130]
-                    self.sound_engine.play()
+                    loader.sound_engine.play()
                 if self.ticks_last + 400 < pygame.time.get_ticks():  # delay has happened let the ship fly
                     if self.player_destination[self.player_destination[0]] == self.player.rect.y and self.player_destination[0] != len(self.player_destination)-1:
                             self.player_destination[0] += 1
@@ -358,7 +326,7 @@ class Game(object):
 
     def game_over_screen(self,screen):
         self.planet_scroll = -300
-        screen.blit(self.PLANET_IMAGE, (0, self.planet_scroll))
+        screen.blit(loader.PLANET_IMAGE, (0, self.planet_scroll))
         if self.score > self.highscore:
             self.highscore = self.score
         font = pygame.font.Font("fonts/OverdriveInline.ttf", 50)
@@ -467,10 +435,10 @@ class Game(object):
 
         pygame.display.flip()
 
-
 def main():
     """ Main program function. """
     # Initialize Pygame and set up the window
+    global loader
     pygame.init()
 
     size = [SCREEN_WIDTH, SCREEN_HEIGHT]
@@ -484,11 +452,12 @@ def main():
     clock = pygame.time.Clock()
 
     # Create an instance of the Game class
+
+    loader = load.Loader()
     game = Game()
 
     #create Starfield(background)
     game.init_stars(screen)
-
 
     # Main game loop
     while not done:
