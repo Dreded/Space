@@ -12,7 +12,9 @@
 import pygame
 import random
 import pyganim
+import eztext
 import load
+import starfield
 
 #--- Global constants ---
 BLACK = (0, 0, 0)
@@ -25,12 +27,13 @@ SCREEN_HEIGHT = 720
 
 # --- Classes ---
 
+
 class Block(pygame.sprite.Sprite):
     """ This class represents a simple block the player collects. """
     block_speed = 0
-    scorevalue = 0
+    points = 0
 
-    def __init__(self, caller, block_speed, scorevalue):
+    def __init__(self, block_speed, points):
         """ Constructor, create the image of the block. """
         pygame.sprite.Sprite.__init__(self)
         self.ufo_ani = pyganim.PygAnimation.getCopy(loader.UFO_ANI)
@@ -40,7 +43,7 @@ class Block(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)
         #self.image.fill(RED)
         self.block_speed = block_speed
-        self.scorevalue = scorevalue
+        self.points = points
         if not random.randint(0, 4):
             self.ufo_ani.reverse()
         self.ufo_ani.play()
@@ -67,16 +70,16 @@ class Player(pygame.sprite.Sprite):
     mouse = True
     bullet_list = None
 
-    def __init__(self, caller):
+    def __init__(self):
         pygame.sprite.Sprite.__init__(self)
         self.bullet_list = pygame.sprite.Group()
         self.image = loader.PLAYER_IMAGE
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
 
-    def shoot(self,caller):
+    def shoot(self, caller):
         if len(self.bullet_list) < 3:
-            bullet = Bullet(self)
+            bullet = Bullet()
             # Set the bullet so it is where the player is(and centered)
             bullet.rect.center = self.rect.center
             # Add the bullet to the lists
@@ -97,7 +100,7 @@ class Bullet(pygame.sprite.Sprite):
     speed = 0
 
     """ This Class Represents a Bullet"""
-    def __init__(self, caller):
+    def __init__(self):
 
         #call the parent class constructor
         pygame.sprite.Sprite.__init__(self)
@@ -130,34 +133,27 @@ class Game(object):
     sound_bullet_fire = None
 
     # Other data
-    need_loader = True
     level_over = False
     level_start = False
     ticks_last = 0
     player_destination = []
-    game_over = False
+    game_over = True
     start_block_speed = 2
     block_speed = start_block_speed
     start_block_count = 5
     block_count = start_block_count
 
+    txtbx = None
+
     start_life = 5
     life = start_life
 
     level = 1
+
     highscore = 0
-    try:
-        with open('highscore.txt','r') as file:
-            for line in file:
-                highscore = int(line.strip())
-    except:
-        pass
-    score = 0
-    MAX_STARS = 350
-    STAR_SPEED = 2
-    stars = []
-    currenttrack = ""
-    music = None
+    score = 30000
+    score_name = ""
+    score_changed = False
 
     # --- Class methods
     # Set up the game
@@ -172,7 +168,7 @@ class Game(object):
 
         # Create the block sprites
         for i in range(self.block_count):
-            block = Block(self, self.block_speed, 100*self.level)
+            block = Block(self.block_speed, 100*self.level)
 
             block.rect.x = random.randrange(100, SCREEN_WIDTH-100)
             block.rect.y = random.randrange(-300, SCREEN_HEIGHT//3)
@@ -181,69 +177,37 @@ class Game(object):
             self.all_sprites_list.add(block)
 
         # Create the player
-        self.player = Player(self)
+        self.player = Player()
         self.all_sprites_list.add(self.player)
         self.player_list.add(self.player)
-        #pygame.mouse.set_pos([SCREEN_WIDTH/2,SCREEN_HEIGHT-130])
 
-
-    def init_stars(self, screen):
-        """ Create the starfield """
-        for i in range(self.MAX_STARS):
-            # A star is represented as a list with this format: [X,Y,speed]
-            star = [random.randrange(0, screen.get_width() - 1),
-                    random.randrange(0, screen.get_height() - 1),
-                    random.choice([1, 2, 3])]
-            self.stars.append(star)
-
-    def move_and_draw_stars(self, screen):
-        """ Move and draw the stars in the given screen """
-        for star in self.stars:
-            star[1] += star[2]
-            # If the star hit the bottom border then we reposition
-            # it in the top of the screen with a random X coordinate.
-            if star[1] >= screen.get_height():
-                star[1] = 0
-                star[0] = random.randrange(0,screen.get_width() - 1)
-                star[2] = random.choice([1,2,3])
-
-            # Adjust the star color acording to the speed.
-            # The slower the star, the darker should be its color.
-            if star[2] == 1:
-                color = (100,100,100)
-            elif star[2] == 2:
-                color = (190,190,190)
-            elif star[2] == 3:
-                color = (255,255,255)
-
-            # Draw the star as a rectangle.
-            # The star size is proportional to its speed.
-            screen.fill(color,(star[0],star[1],star[2],star[2]))
-
-    def printhud(self,screen):
+    def print_hud(self,screen):
         font = pygame.font.Font(None, 36)
 
         text = font.render("Score:  {:07}".format(self.score), 1, WHITE)
-        textpos = text.get_rect(right=screen.get_width()-20,y=10)
+        textpos = text.get_rect(right=screen.get_width()-20, y=10)
         screen.blit(text, textpos)
 
         for life in range(self.life):
-            image = pygame.transform.scale(self.player.image, (self.player.rect.width//3,self.player.rect.height//3))
-            rect = image.get_rect(y=10,x=15)
-            rect.x = rect.x+rect.width*life
-            screen.blit(image,rect)
+            image = pygame.transform.scale(self.player.image, (self.player.rect.width//3, self.player.rect.height//3))
+            rect = image.get_rect(y=10, x=15)
+            rect.x += rect.width*life
+            screen.blit(image, rect)
 
-        text = font.render("Level: {:02}".format(self.level),1,WHITE)
-        textpos = text.get_rect(left=SCREEN_WIDTH/2-text.get_rect()[0],y=10)
-        screen.blit(text, textpos)
+        # text = font.render("Level: {:02}".format(self.level), 1, WHITE)
+        # textpos = text.get_rect(left=SCREEN_WIDTH/2-text.get_rect()[0], y=10)
+        # screen.blit(text, textpos)
 
     def new_game(self):
         self.block_speed = self.start_block_speed
         self.block_count = self.start_block_count
         self.score = 0
+        self.score_changed = False
         self.level = 1
         self.life = self.start_life
         self.game_over = False
+        self.score_changed = False
+        self.score_name = "NewScore"
         self.__init__()
 
         print(self.game_over)
@@ -257,13 +221,13 @@ class Game(object):
         self.level_over = False
         self.__init__()
 
-    def level_transition(self,screen):
+    def level_transition(self, screen):
         if self.level_start:
             if not self.ticks_last:
                 self.ticks_last = pygame.time.get_ticks()
             if not self.player.mouse:
                 self.player.mouse = True
-                pygame.mouse.set_pos([SCREEN_WIDTH/2,SCREEN_HEIGHT-130])
+                pygame.mouse.set_pos([SCREEN_WIDTH/2, SCREEN_HEIGHT-130])
 
             font = pygame.font.Font("fonts/OverdriveInline.ttf", 75)
             text = font.render("GET READY!", True, WHITE)
@@ -293,14 +257,14 @@ class Game(object):
 
             if self.player.rect.x > SCREEN_WIDTH/2-64:
                 if SCREEN_WIDTH/2-64 - self.player.rect.x > center_speed:
-                    self.player.rect.x -=1
+                    self.player.rect.x -= 1
                 else:
                     self.player.rect.x -= center_speed
             elif self.player.rect.x < SCREEN_WIDTH // 2 - 64:
                 if SCREEN_WIDTH // 2 - 64 - self.player.rect.x < center_speed:
-                    self.player.rect.x +=1
+                    self.player.rect.x += 1
                 else:
-                    self.player.rect.x +=center_speed
+                    self.player.rect.x += center_speed
             else:
                 if not self.ticks_last:  # delay moving the ship to make the sound line up better
                     self.ticks_last = pygame.time.get_ticks()
@@ -321,43 +285,71 @@ class Game(object):
                         self.level_start = True
                         self.ticks_last = 0
                     elif self.player_destination[self.player_destination[0]-1] < self.player_destination[self.player_destination[0]]:
-                        self.player.rect.y += fly_speed//2
+                        self.player.rect.y += fly_speed // 2
         self.player_list.draw(screen)
 
-    def game_over_screen(self,screen):
+    def game_over_screen(self, screen):
         self.planet_scroll = -300
         screen.blit(loader.PLANET_IMAGE, (0, self.planet_scroll))
-        if self.score > self.highscore:
-            self.highscore = self.score
-        font = pygame.font.Font("fonts/OverdriveInline.ttf", 50)
-        text = font.render("Game Over, 'Space' to restart", True, WHITE)
-        x = (SCREEN_WIDTH // 2) - (text.get_width() // 2)
-        y = 100
-        screen.blit(text, [x, y])
 
-        text = font.render("HIGH SCORE: {:7}".format(self.highscore), True, WHITE)
-        x = (SCREEN_WIDTH // 2) - (text.get_width() // 2)
-        y += 200
-        screen.blit(text, [x, y])
-        text = font.render("YOUR SCORE: {:7}".format(self.score), True, WHITE)
-        x = (SCREEN_WIDTH // 2) - (text.get_width() // 2)
-        y += 200
-        screen.blit(text, [x, y])
+        #check lowest high score against current score
+        if self.score > int(loader.highscore[len(loader.highscore)-1][1]) and not self.score_changed:
+            loader.highscore[len(loader.highscore)-1][0] = "NEWSCORE"
+            loader.highscore[len(loader.highscore)-1][1] = str(self.score)
+
+            #sort the new scores(in place)
+            loader.highscore.sort(key=lambda x: int(x[1]), reverse=True)
+            for counter, score in enumerate(loader.highscore):
+                if score[0] == "NEWSCORE":
+                    self.score_changed = counter + 1
+                    #create textbox for users name
+                    self.txtbx = eztext.Input(maxlength=10, color=(255, 0, 0), prompt='Name: ',value=self.score_name,x=SCREEN_CENTER[0] , y=SCREEN_CENTER[1])
+
+        if self.score_changed:
+            loader.highscore[self.score_changed-1][0] = str(self.score_name)
+            #pass
+
+
+        font = pygame.font.Font("fonts/OverdriveInline.ttf", 30)
+        text_list = ['HighScores']
+        for score in loader.highscore:
+            text_list.append("{:10}{:3}{:10}".format(score[0], ' - ', int(score[1])))
+        step_value = 50
+        y = len(text_list) * - step_value//2
+        for counter, each in enumerate(text_list):
+            if counter == self.score_changed and counter != 0:
+                color = RED
+            else:
+                color = WHITE
+
+            text = font.render(each, True, color)
+            text_rect = text.get_rect(center=SCREEN_CENTER)
+            screen.blit(text, (text_rect.x, text_rect.y + y))
+            y += step_value
+
+    def save_high_scores(self):
+        try:
+            with open('highscore.txt', 'w') as file:
+                for score in loader.highscore:
+                    line = "{}:{}".format(score[0], score[1])
+                    print(line,file=file)
+        except:
+            pass
 
     def quit(self):
-        with open('highscore.txt','w') as file:
-            print(str(self.highscore), file=file)
+        """Run Stuff needed at quit"""
+        self.save_high_scores()
 
     def process_events(self):
         """ Process all of the events. Return a "True" if we need
             to close the window. """
-
-        for event in pygame.event.get():
+        self.events = pygame.event.get()
+        for event in self.events:
             if event.type == pygame.QUIT:
                 self.quit()
                 return True
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                if self.game_over or self.level_over: # dont fir when in other screens
+                if self.game_over or self.level_over:  # don't fire when in other screens
                     pass
 
                 else:
@@ -365,16 +357,16 @@ class Game(object):
                     self.player.shoot(self)
 
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
+                if event.key == pygame.K_RETURN:
                     if self.game_over:
                         self.new_game()
 
                     elif self.level_over:
                         self.next_level()
-                elif event.key == pygame.K_q:
+                elif event.key == pygame.K_q and not self.game_over:
                     self.quit()
                     return True
-                elif event.key == pygame.K_r:
+                elif event.key == pygame.K_r and not self.game_over:
                     self.level_over = False
                     self.game_over = False
                     self.new_game()
@@ -399,12 +391,12 @@ class Game(object):
 
             for bullet in self.player.bullet_list:
                 # check if the lasers(bullet) hit anything in the block list(enemies)
-                bullet_hit_list = pygame.sprite.spritecollide(bullet, self.block_list, True,collided=pygame.sprite.collide_mask)
+                bullet_hit_list = pygame.sprite.spritecollide(bullet, self.block_list, True, collided=pygame.sprite.collide_mask)
 
                 for block in bullet_hit_list:
                     self.player.bullet_list.remove(bullet)
                     self.all_sprites_list.remove(bullet)
-                    self.score += block.scorevalue
+                    self.score += block.points
 
                 if bullet.rect.y < -10:  # remove bullet if it goes off screen
                     self.player.bullet_list.remove(bullet)
@@ -418,10 +410,15 @@ class Game(object):
     def display_frame(self, screen):
         """ Display everything to the screen for the game. """
         screen.fill(BLACK)
-        self.move_and_draw_stars(screen)
+        starfield.move_and_draw_stars(screen)
 
         if self.game_over:
             self.game_over_screen(screen)
+            if self.txtbx:
+                # update txtbx
+                self.score_name = self.txtbx.update(self.events)
+                # blit txtbx on the sceen
+                self.txtbx.draw(screen)
 
         if self.level_over:
             self.level_transition(screen)
@@ -431,19 +428,21 @@ class Game(object):
             self.player.bullet_list.draw(screen)
             self.player_list.draw(screen)
 
-        self.printhud(screen)
+        self.print_hud(screen)
 
         pygame.display.flip()
+
 
 def main():
     """ Main program function. """
     # Initialize Pygame and set up the window
-    global loader
+    global loader  # set as global to make reference within all class's simple.
+    global SCREEN_CENTER
     pygame.init()
 
     size = [SCREEN_WIDTH, SCREEN_HEIGHT]
     screen = pygame.display.set_mode(size)
-
+    SCREEN_CENTER = screen.get_rect().center
     pygame.display.set_caption("Space Ace")
     pygame.mouse.set_visible(False)
 
@@ -457,7 +456,7 @@ def main():
     game = Game()
 
     #create Starfield(background)
-    game.init_stars(screen)
+    starfield.init_stars(screen)
 
     # Main game loop
     while not done:

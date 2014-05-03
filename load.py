@@ -14,6 +14,7 @@ import pyganim
 
 
 class Loader(object):
+    highscore = []
 
     def __init__(self):
         #Initalize music track
@@ -46,6 +47,23 @@ class Loader(object):
         self.sound_engine_hum.play(-1)
         #self.sound_start.play()
 
+        #Load High Scores
+        try:
+            with open('highscore.txt', 'r') as file:
+                for line in file:
+                    line = line.strip()
+                    line = list(filter(None, line.split(':')))
+                    self.highscore.append(line)
+                self.highscore.sort(key=lambda x: int(x[1]),reverse=True)
+        except:
+            pass
+
     def music(self,track):
         pygame.mixer.music.load(track)
         pygame.mixer.music.play(-1)
+
+def main():
+    pass
+
+if __name__ == "__main__":
+  main()
