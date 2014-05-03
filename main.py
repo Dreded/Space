@@ -137,7 +137,7 @@ class Game(object):
     level_start = False
     ticks_last = 0
     player_destination = []
-    game_over = True
+    game_over = False
     start_block_speed = 2
     block_speed = start_block_speed
     start_block_count = 5
@@ -151,7 +151,7 @@ class Game(object):
     level = 1
 
     highscore = 0
-    score = 30000
+    score = 0
     score_name = ""
     score_changed = False
 
@@ -290,7 +290,8 @@ class Game(object):
 
     def game_over_screen(self, screen):
         self.planet_scroll = -300
-        screen.blit(loader.PLANET_IMAGE, (0, self.planet_scroll))
+        planet_size = loader.PLANET_IMAGE.get_size()
+        screen.blit(loader.PLANET_IMAGE, (SCREEN_CENTER[0] - planet_size[0]//2, SCREEN_CENTER[1] - planet_size[1]//2))
 
         #check lowest high score against current score
         if self.score > int(loader.highscore[len(loader.highscore)-1][1]) and not self.score_changed:
@@ -331,6 +332,8 @@ class Game(object):
         try:
             with open('highscore.txt', 'w') as file:
                 for score in loader.highscore:
+                    if score[0] == "":
+                        score[0] = "No_Name"
                     line = "{}:{}".format(score[0], score[1])
                     print(line,file=file)
         except:
