@@ -9,30 +9,29 @@
 # Copyright:   (c) Dreded 2014
 #-------------------------------------------------------------------------------
 import pygame
-import loader
+import pyganim
 import random
 from constants import *
 
-class Block(pygame.sprite.Sprite):
+class Asteroid(pygame.sprite.Sprite):
     """ This class represents a simple block the player collects. """
-    block_speed = 0
+    speed = 0
     points = 0
 
-    def __init__(self, block_speed, points):
-        """ Constructor, create the image of the block. """
+    def __init__(self, speed, points, image):
         pygame.sprite.Sprite.__init__(self)
-        self.ufo_ani = pyganim.PygAnimation.getCopy(loader.UFO_ANI)
-        self.ufo_ani.rotate(random.randint(-90, 90))
-        self.rect = self.ufo_ani.getRect()
-        self.image = self.ufo_ani.getCurrentFrame()
-        self.mask = pygame.mask.from_surface(self.image)
-        #self.image.fill(RED)
-        self.block_speed = block_speed
+        self.animation = pyganim.PygAnimation.getCopy(image)
+        self.animation.rotate(random.randint(-90, 90))
+        self.speed = speed
         self.points = points
         if not random.randint(0, 4):
-            self.ufo_ani.reverse()
-        self.ufo_ani.play()
-        self.ufo_ani.rate = random.uniform(.5, 2.5)
+            self.animation.reverse()
+        self.animation.play()
+        self.animation.rate = random.uniform(.5, 2.5)
+        self.image = self.animation.getCurrentFrame()
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect = self.image.get_rect()
+        self.radius = self.rect.height/3.5
 
     def reset_pos(self):
         """ Called when the block is 'collected' or falls off
@@ -40,10 +39,15 @@ class Block(pygame.sprite.Sprite):
         self.rect.y = random.randrange(-300, -100)
         self.rect.x = random.randrange(100, SCREEN_WIDTH-100)
 
-    def update(self):
+    def update(self, events, game):
         """ Automatically called when we need to move the block. """
-        self.rect.y += self.block_speed
-        self.image = self.ufo_ani.getCurrentFrame()
+        self.rect.y += self.speed
+        self.image = self.animation.getCurrentFrame()
+        hit_list = pygame.sprite.spritecollide(game.player, game.enemy_list, True, collided=pygame.sprite.collide_mask)
+
+        for hit in hit_list:
+                game.player.life -= 1
+                # You can do something with "block" here.)
 
         if self.rect.y > SCREEN_HEIGHT + self.rect.height:
             self.reset_pos()
@@ -53,17 +57,19 @@ class Player(pygame.sprite.Sprite):
     """ This class represents the player. """
 
     bullet_list = None
+    life = 5
 
     def __init__(self, image):
         pygame.sprite.Sprite.__init__(self)
         self.bullet_list = pygame.sprite.Group()
         self.image = image
-        self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
+        self.rect = self.image.get_rect()
+        self.radius = self.rect.height//2
 
     def shoot(self, game):
         if len(self.bullet_list) < 3:
-            bullet = Bullet(game.LOADER.BULLET_IMAGE)
+            bullet = Bullet(game.loader.BULLET_IMAGE)
             # Set the bullet so it is where the player is(and centered)
             bullet.rect.center = self.rect.center
             # Add the bullet to the lists
@@ -71,7 +77,7 @@ class Player(pygame.sprite.Sprite):
             game.all_sprites_list.add(bullet)
             self.bullet_list.add(bullet)
             #Play Bullet sound
-            LOADER.SOUND_BULLET_FIRE.play()
+            game.loader.SOUND_BULLET_FIRE.play()
 
     def update(self, events, game):
         """ Update the player location. """
@@ -79,6 +85,14 @@ class Player(pygame.sprite.Sprite):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # Fire a bullet if the user clicks the mouse button
                 self.shoot(game)
+
+        for bullet in self.bullet_list:
+                # check if the lasers(bullet) hit anything in the block list(enemies)
+                bullet_hit_list = pygame.sprite.spritecollide(bullet, game.enemy_list, True, collided=pygame.sprite.collide_mask)
+
+                for enemy in bullet_hit_list:
+                    bullet.kill()
+                    game.score += enemy.points
 
         self.rect.center = pygame.mouse.get_pos()           # center player to mouse
         self.rect.y = SCREEN_HEIGHT-130                     # lock player to bottom of screen
@@ -92,12 +106,14 @@ class Bullet(pygame.sprite.Sprite):
         pygame.sprite.Sprite.__init__(self)
         self.image = image
         self.rect = self.image.get_rect()
-        self.mask = pygame.mask.from_surface(self.image)
+        self.radius = 5
         self.speed = 8
 
-    def update(self):
+    def update(self, events, game):
         """Move Bullet"""
         self.rect.y -= self.speed
+        if self.rect.y < -60:
+            self.kill()
 
 if __name__ == "__main__":
     pass

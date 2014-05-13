@@ -11,7 +11,8 @@
 import pygame
 import kezmenu
 import loader
-from sprites import *
+import random
+import sprites
 import starfield
 import os
 from constants import *
@@ -91,7 +92,9 @@ class Game():
     menu = kezmenu.KezMenu()
 
     def __init__(self):
+        self.score = 0
 
+        self.loader = loader.Loader()
         self.gamemode = fsm([('Playing', 'GameOver', lambda x: x == 'GameOver'),
                              ('MainMenu', 'Playing', lambda x: x == 'NewGame', lambda x, y: self.newgame()),
                              ('MainMenu', 'Playing', lambda x: x == 'Resume'),
@@ -111,20 +114,44 @@ class Game():
         self.menu._fixSize()
         self.menu.center_at(SCREEN_CENTER)  # center entire menu to screen
 
-        self.asteroid_list = pygame.sprite.Group()
+        self.enemy_list = pygame.sprite.Group()
         self.player_list = pygame.sprite.Group()
         self.all_sprites_list = pygame.sprite.Group()
 
         self.events = None
 
         # Create the player
-        self.player = Player(LOADER.PLAYER_IMAGE)
+        self.player = sprites.Player(self.loader.PLAYER_IMAGE)
         self.all_sprites_list.add(self.player)
         self.player_list.add(self.player)
 
     def newgame(self):
-        LOADER.SOUND_START.play()
+        self.loader.SOUND_START.play()
+        self.asteroid_field()
         self.menu.insert(2, ['Resume Game', lambda: self.gamemode.event('Resume')])
+
+    def asteroid_field(self):
+        for i in range(10):
+            asteroid = sprites.Asteroid(4, 100, self.loader.ASTEROID_ANIMATION)
+
+            asteroid.rect.x = random.randrange(100, SCREEN_WIDTH-100)
+            asteroid.rect.y = random.randrange(-300, SCREEN_HEIGHT//3)
+
+            self.enemy_list.add(asteroid)
+            self.all_sprites_list.add(asteroid)
+
+    def print_hud(self,screen):
+        font = pygame.font.Font(None, 36)
+
+        text = font.render("Score:  {:07}".format(self.score), 1, WHITE)
+        textpos = text.get_rect(right=screen.get_width()-20, y=10)
+        screen.blit(text, textpos)
+
+        for life in range(self.player.life):
+            image = pygame.transform.scale(self.player.image, (self.player.rect.width//3, self.player.rect.height//3))
+            rect = image.get_rect(y=10, x=15)
+            rect.x += rect.width*life
+            screen.blit(image, rect)
 
     def quit(self):
         """Run Stuff needed before exit"""
@@ -142,9 +169,7 @@ class Game():
                     pygame.event.post(pygame.event.Event(pygame.QUIT))
 
                 elif self.gamemode.currentState == 'Playing':
-                    if e.key == pygame.K_RETURN:
-                        print("Firing Weapons")
-                    elif e.key == pygame.K_ESCAPE:
+                    if e.key == pygame.K_ESCAPE:
                         self.gamemode.event('MainMenu')
 
         return False  # not done
@@ -164,7 +189,11 @@ class Game():
             pygame.mouse.set_visible(True)
             self.menu.draw(screen)
         elif self.gamemode.currentState == 'Playing':
-            self.all_sprites_list.draw(screen)
+            self.enemy_list.draw(screen)
+            self.player.bullet_list.draw(screen)
+            self.player_list.draw(screen)
+            self.print_hud(screen)
+
 
         pygame.display.update()
 
@@ -172,7 +201,6 @@ class Game():
 def main():
     """ Main program function. """
     # Initialize Pygame and set up the window
-    global LOADER  # set as global to make reference within all class's simple.
     pygame.init()
 
     size = [SCREEN_WIDTH, SCREEN_HEIGHT]
@@ -185,8 +213,6 @@ def main():
     clock = pygame.time.Clock()
 
     # Create an instance of the Game class
-
-    LOADER = loader.Loader()
     game = Game()
 
     #create Starfield(background)

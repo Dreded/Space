@@ -9,7 +9,7 @@
 # Copyright:   (c) Dreded 2014
 #-------------------------------------------------------------------------------
 import pygame
-
+import pyganim
 
 class Loader(object):
     def __init__(self):
@@ -18,12 +18,11 @@ class Loader(object):
         self.BULLET_IMAGE = pygame.image.load("sprites/projectile.png").convert_alpha()
 
         self.PLANET_IMAGE = pygame.image.load("sprites/planets.png").convert_alpha()
-
-        self.ASTEROID_ANIMATION = [(pygame.image.load('sprites/Asteroid/Asteroid 01-.%d.png' % (i+1)).convert_alpha()) for i in range(60)]
-        #UFO_ANIMATION.smoothscale((64,64))
-        #self.UFO_ANI.rotate(45)  # rotate 45 degrees so surface is large enough when we rotate later
-        #UFO_ANI.makeTransformsPermanent()  # this makes it so our animation surface is actually the new scaled size
-        #UFO_ANI.convert_alpha()
+        self.ASTEROID_ANIMATION = pyganim.PygAnimation([('sprites/Asteroid/Asteroid 01-.%d.png' % (i+1), .06) for i in range(60)])
+        self.ASTEROID_ANIMATION.smoothscale((64, 64))
+        self.ASTEROID_ANIMATION.rotate(45)  # rotate 45 degrees so surface is large enough when we rotate later
+        self.ASTEROID_ANIMATION.makeTransformsPermanent()  # this makes it so our animation surface is actually the new scaled size
+        self.ASTEROID_ANIMATION.convert_alpha()
 
         #Open Sounds
         self.SOUND_START = pygame.mixer.Sound("music/start.ogg")
