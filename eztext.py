@@ -54,7 +54,7 @@ class Input:
                 if event.key == K_BACKSPACE: self.value = self.value[:-1]
                 elif event.key == K_LSHIFT or event.key == K_RSHIFT: self.shifted = True
                 elif event.key == K_SPACE: self.value += ' '
-                elif event.key == K_RETURN: return self.value
+                #elif event.key == K_RETURN: return self.value
                 if not self.shifted:
                     if event.key == K_a and 'a' in self.restricted: self.value += 'a'
                     elif event.key == K_b and 'b' in self.restricted: self.value += 'b'
